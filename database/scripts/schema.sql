@@ -5,8 +5,6 @@
 -- Level 3 Academic Project Schema
 -- ==============================================================================
 
-DROP DATABASE IF EXISTS university_lab_db;
-CREATE DATABASE university_lab_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE university_lab_db;
 
 -- ------------------------------------------------------------------------------

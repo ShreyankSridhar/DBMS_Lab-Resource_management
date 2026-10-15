@@ -9,7 +9,12 @@ export async function GET() {
     // Query relational view directly or calculate via Prisma
     let viewData: any[] = [];
     try {
-      viewData = await prisma.$queryRaw`SELECT * FROM view_lab_utilization ORDER BY total_hours_booked DESC`;
+      const rawViewData = await prisma.$queryRaw<any[]>`SELECT * FROM view_lab_utilization ORDER BY total_hours_booked DESC`;
+      viewData = JSON.parse(
+        JSON.stringify(rawViewData, (_, value) =>
+          typeof value === 'bigint' ? Number(value) : value
+        )
+      );
     } catch {
       // Fallback in case view is not yet created in the current DB instance
       const labs = await prisma.lab.findMany({
