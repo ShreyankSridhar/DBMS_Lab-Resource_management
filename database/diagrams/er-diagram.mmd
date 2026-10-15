@@ -1,0 +1,128 @@
+erDiagram
+    USERS ||--o{ BOOKINGS : "places"
+    USERS ||--o{ APPROVALS : "reviews"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    USERS ||--o{ MAINTENANCE : "schedules"
+
+    LABS ||--o{ RESOURCES : "houses"
+    LABS ||--o{ BOOKINGS : "allocated_for"
+    LABS ||--o{ MAINTENANCE : "subject_to"
+
+    RESOURCE_CATEGORIES ||--o{ RESOURCES : "classifies"
+
+    RESOURCES ||--o{ BOOKING_ITEMS : "reserved_in"
+    RESOURCES ||--o{ MAINTENANCE : "maintained_in"
+
+    BOOKINGS ||--o{ BOOKING_ITEMS : "contains"
+    BOOKINGS ||--o| APPROVALS : "decided_by"
+
+    USERS {
+        int id PK
+        varchar name
+        varchar email UK
+        varchar password_hash
+        enum role
+        varchar department
+        datetime created_at
+        datetime updated_at
+    }
+
+    LABS {
+        int id PK
+        varchar name
+        varchar building
+        varchar location
+        int capacity
+        text description
+        enum status
+        datetime created_at
+    }
+
+    RESOURCE_CATEGORIES {
+        int id PK
+        varchar name UK
+        text description
+    }
+
+    RESOURCES {
+        int id PK
+        int lab_id FK
+        int category_id FK
+        varchar name
+        text description
+        int total_quantity
+        enum status
+        datetime created_at
+        datetime updated_at
+    }
+
+    BOOKINGS {
+        int id PK
+        int user_id FK
+        int lab_id FK
+        text purpose
+        datetime start_time
+        datetime end_time
+        enum status
+        datetime created_at
+        datetime updated_at
+    }
+
+    BOOKING_ITEMS {
+        int id PK
+        int booking_id FK
+        int resource_id FK
+        int quantity_requested
+    }
+
+    APPROVALS {
+        int id PK
+        int booking_id FK,UK
+        int admin_id FK
+        enum decision
+        text comments
+        datetime decided_at
+    }
+
+    MAINTENANCE {
+        int id PK
+        int resource_id FK
+        int lab_id FK
+        datetime start_time
+        datetime end_time
+        text description
+        enum status
+        int created_by FK
+        datetime created_at
+    }
+
+    NOTIFICATIONS {
+        int id PK
+        int user_id FK
+        text message
+        enum type
+        datetime read_at
+        datetime created_at
+    }
+
+    OUTBOX_EVENTS {
+        int id PK
+        varchar event_type
+        longtext payload
+        enum status
+        int retry_count
+        text error_message
+        datetime created_at
+        datetime processed_at
+    }
+
+    AUDIT_LOGS {
+        int id PK
+        int actor_id
+        varchar action
+        varchar entity_type
+        int entity_id
+        text details
+        varchar ip_address
+        datetime created_at
+    }

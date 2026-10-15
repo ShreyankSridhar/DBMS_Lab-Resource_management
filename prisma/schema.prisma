@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  ADMIN
+  LAB_MANAGER
+}
+
+enum LabStatus {
+  AVAILABLE
+  MAINTENANCE
+  RESERVED
+  INACTIVE
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  MAINTENANCE
+  DECOMMISSIONED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  BOOKING_REQUEST
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  MAINTENANCE_ALERT
+  SYSTEM
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model User {
+  id           Int            @id @default(autoincrement())
+  name         String         @db.VarChar(100)
+  email        String         @unique @db.VarChar(150)
+  passwordHash String         @map("password_hash") @db.VarChar(255)
+  role         Role           @default(STUDENT)
+  department   String         @db.VarChar(100)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  bookings     Booking[]
+  approvals    Approval[]
+  notifications Notification[]
+  maintenances Maintenance[]
+
+  @@map("users")
+}
+
+model Lab {
+  id          Int          @id @default(autoincrement())
+  name        String       @db.VarChar(100)
+  building    String       @db.VarChar(100)
+  location    String       @db.VarChar(100)
+  capacity    Int
+  description String?      @db.Text
+  status      LabStatus    @default(AVAILABLE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  resources    Resource[]
+  bookings     Booking[]
+  maintenances Maintenance[]
+
+  @@index([status], name: "idx_labs_status")
+  @@map("labs")
+}
+
+model ResourceCategory {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique @db.VarChar(100)
+  description String?    @db.Text
+
+  resources   Resource[]
+
+  @@map("resource_categories")
+}
+
+model Resource {
+  id            Int            @id @default(autoincrement())
+  labId         Int            @map("lab_id")
+  categoryId    Int            @map("category_id")
+  name          String         @db.VarChar(150)
+  description   String?        @db.Text
+  totalQuantity Int            @default(1) @map("total_quantity")
+  status        ResourceStatus @default(AVAILABLE)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  lab          Lab              @relation(fields: [labId], references: [id], onDelete: Cascade)
+  category     ResourceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  bookingItems BookingItem[]
+  maintenances Maintenance[]
+
+  @@index([labId, categoryId], name: "idx_resources_lab_cat")
+  @@map("resources")
+}
+
+model Booking {
+  id        Int           @id @default(autoincrement())
+  userId    Int           @map("user_id")
+  labId     Int           @map("lab_id")
+  purpose   String        @db.Text
+  startTime DateTime      @map("start_time")
+  endTime   DateTime      @map("end_time")
+  status    BookingStatus @default(PENDING)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lab          Lab           @relation(fields: [labId], references: [id], onDelete: Restrict)
+  bookingItems BookingItem[]
+  approval     Approval?
+
+  @@index([labId, startTime, endTime, status], name: "idx_bookings_lab_times")
+  @@index([userId, status], name: "idx_bookings_user_status")
+  @@index([status], name: "idx_bookings_status")
+  @@map("bookings")
+}
+
+model BookingItem {
+  id                Int      @id @default(autoincrement())
+  bookingId         Int      @map("booking_id")
+  resourceId        Int      @map("resource_id")
+  quantityRequested Int      @default(1) @map("quantity_requested")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+
+  @@index([resourceId, bookingId], name: "idx_booking_items_resource")
+  @@map("booking_items")
+}
+
+model Approval {
+  id        Int              @id @default(autoincrement())
+  bookingId Int              @unique @map("booking_id")
+  adminId   Int              @map("admin_id")
+  decision  ApprovalDecision
+  comments  String?          @db.Text
+  decidedAt DateTime         @default(now()) @map("decided_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  admin   User    @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@map("approvals")
+}
+
+model Maintenance {
+  id          Int               @id @default(autoincrement())
+  resourceId  Int?              @map("resource_id")
+  labId       Int?              @map("lab_id")
+  startTime   DateTime          @map("start_time")
+  endTime     DateTime          @map("end_time")
+  description String            @db.Text
+  status      MaintenanceStatus @default(SCHEDULED)
+  createdBy   Int               @map("created_by")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  resource Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  lab      Lab?      @relation(fields: [labId], references: [id], onDelete: SetNull)
+  creator  User      @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([labId, resourceId, startTime, endTime], name: "idx_maintenance_window")
+  @@map("maintenance")
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int              @map("user_id")
+  message   String           @db.Text
+  type      NotificationType @default(SYSTEM)
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt], name: "idx_notifications_user_read")
+  @@map("notifications")
+}
+
+model OutboxEvent {
+  id           Int          @id @default(autoincrement())
+  eventType    String       @map("event_type") @db.VarChar(100)
+  payload      String       @db.LongText
+  status       OutboxStatus @default(PENDING)
+  retryCount   Int          @default(0) @map("retry_count")
+  errorMessage String?      @map("error_message") @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at")
+  processedAt  DateTime?    @map("processed_at")
+
+  @@index([status, createdAt], name: "idx_outbox_status_created")
+  @@map("outbox_events")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int?     @map("actor_id")
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   Int?     @map("entity_id")
+  details    String?  @db.Text
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId], name: "idx_audit_entity")
+  @@index([createdAt], name: "idx_audit_created")
+  @@map("audit_logs")
+}
