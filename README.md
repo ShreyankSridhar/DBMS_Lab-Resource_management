@@ -190,5 +190,7 @@ npx vitest run tests/allocation.test.ts
 ## 👨‍💻 Academic Project Attribution
 - **Student**: Shreyank S
 - **SRN**: PES1UG24CS443
+- **Student**:Sunnagar Prajwal
+- **SRN**: PES1UG24CS482
 - **Course**: Database Management Systems (DBMS Level 3)
 - **Institution**: PES University
